@@ -140,39 +140,52 @@ class window(wx.Frame):
             elif z < 0: self.p.zoom(event.GetX(), event.GetY(), 1/1.2)
 
 class gviz(wx.Panel):
-    def __init__(self, parent, size = (200, 200), build_dimensions = [200, 200, 100, 0, 0, 0], grid = (10, 50), extrusion_width = 0.5):
-        wx.Panel.__init__(self, parent,-1, size = (size[0], size[1]))
-        self.parent = parent
-        self.size = size
-        self.build_dimensions = build_dimensions
-        self.grid = grid
-        self.lastpos = [0, 0, 0, 0, 0, 0, 0]
-        self.hilightpos = self.lastpos[:]
-        self.Bind(wx.EVT_PAINT, self.paint)
-        self.Bind(wx.EVT_SIZE, self.resize)
-        self.lines = {}
-        self.pens = {}
-        self.arcs = {}
-        self.arcpens = {}
-        self.layers = []
-        self.layerindex = 0
-        self.filament_width = extrusion_width # set it to 0 to disable scaling lines with zoom
-        self.basescale = [min(float(size[0])/build_dimensions[0], float(size[1])/build_dimensions[1])]*2
-        self.scale = self.basescale
-        penwidth = max(1.0, self.filament_width*((self.scale[0]+self.scale[1])/2.0))
-        self.translate = [0.0, 0.0]
-        self.mainpen = wx.Pen(wx.Colour(0, 0, 0), penwidth)
-        self.arcpen = wx.Pen(wx.Colour(255, 0, 0), penwidth)
-        self.travelpen = wx.Pen(wx.Colour(10, 80, 80), penwidth)
-        self.hlpen = wx.Pen(wx.Colour(200, 50, 50), penwidth)
-        self.fades = [wx.Pen(wx.Colour(250-0.6**i*100, 250-0.6**i*100, 200-0.4**i*50), penwidth) for i in xrange(6)]
-        self.penslist = [self.mainpen, self.travelpen, self.hlpen]+self.fades
-        self.showall = 0
-        self.hilight = []
-        self.hilightarcs = []
-        self.dirty = 1
-        self.blitmap = wx.EmptyBitmap(self.GetClientSize()[0], self.GetClientSize()[1],-1)
-
+    def __init__(self,parent,size=(200,200),build_dimensions=[200,200,100,0,0,0],grid=(10,50),extrusion_width=0.5):
+        wx.Panel.__init__(self,parent,-1,size=(size[0],size[1]))
+        self.parent=parent
+        self.size=size
+        self.build_dimensions=build_dimensions
+        self.grid=grid
+        self.lastpos=[0,0,0,0,0,0,0]
+        self.hilightpos=self.lastpos[:]
+        self.Bind(wx.EVT_PAINT,self.paint)
+        self.Bind(wx.EVT_SIZE,self.resize)
+        self.lines={}
+        self.pens={}
+        self.arcs={}
+        self.arcpens={}
+        self.layers=[]
+        self.layerindex=0
+        self.filament_width=extrusion_width # set it to 0 to disable scaling lines with zoom
+        self.basescale=[min(float(size[0])/build_dimensions[0],float(size[1])/build_dimensions[1])]*2
+        self.scale=self.basescale
+        penwidth = max(1.0,self.filament_width*((self.scale[0]+self.scale[1])/2.0))
+        self.translate=[0.0,0.0]
+        penwidthtravel=4.0
+        penwidthhl=8.0
+        penwidthfading=0.9
+        self.setColors([wx.Color(0,0,0)])
+        #self.gridBGColor=wx.Colour(250,255,245)
+        #self.gridMinorColor=wx.Colour(188,200,180)
+        #self.gridMajorColor=wx.Colour(148,160,140)
+        #self.filamentColor=wx.Color(255,128,0)
+        #self.filamentArcColor=wx.Color(200,175,0)
+        #self.travelColor=wx.Color(245,250,240)
+        #self.highlightColor=wx.Colour(255,255,0)
+        #self.fadingColors=[wx.Colour(250-0.6**i*100,250-0.6**i*100,200-0.4**i*50) for i in xrange(6)]
+        #self.fadingColors=[wx.Colour(((self.filamentColor.Red)+(self.gridBGColor.Red*i) / (i+1)), ((self.filamentColor.Green())+(self.gridBGColor.Green()*i) / (i+1)), ((self.filamentColor.Blue())+(self.gridBGColor.Blue()*i) / (i+1))) for i in xrange(6)]
+        self.mainpen=wx.Pen(self.filamentColor,penwidth)
+        self.arcpen=wx.Pen(self.filamentArcColor,penwidth)
+        self.travelpen=wx.Pen(self.travelColor,penwidth*penwidthtravel)
+        self.hlpen=wx.Pen(self.highlightColor,penwidth*penwidthhl)
+        self.fades=[wx.Pen(self.fadingColors[i],penwidth*(1-penwidthfading**i)) for i in xrange(6)]
+        self.penslist=[self.mainpen,self.travelpen,self.hlpen]+self.fades
+        self.showall=0
+        self.hilight=[]
+        self.hilightarcs=[]
+        self.dirty=1
+        self.blitmap=wx.EmptyBitmap(self.GetClientSize()[0],self.GetClientSize()[1],-1)
+    
     def inject(self):
         #import pdb; pdb.set_trace()
         print"Inject code here..."
@@ -191,6 +204,17 @@ class gviz(wx.Panel):
         self.showall = 0
         self.dirty = 1
         #self.repaint()
+
+    def setColors(self, colors=[]):
+        self.gridBGColor=wx.Colour(250,255,245)
+        self.gridMinorColor=wx.Colour(188,200,180)
+        self.gridMajorColor=wx.Colour(148,160,140)
+        self.filamentColor=wx.Color(255,128,0)
+        self.filamentArcColor=wx.Color(200,175,0)
+        self.travelColor=wx.Color(245,250,240)
+        self.highlightColor=wx.Colour(255,255,0)
+        self.fadingColors=[wx.Colour(250-0.6**i*100,250-0.6**i*100,200-0.4**i*50) for i in xrange(6)]
+
     def layerup(self):
         if(self.layerindex+1<len(self.layers)):
             self.layerindex+=1
@@ -231,8 +255,13 @@ class gviz(wx.Panel):
         self.translate = [ x - (x-self.translate[0]) * factor,
                             y - (y-self.translate[1]) * factor]
         penwidth = max(1.0, self.filament_width*((self.scale[0]+self.scale[1])/2.0))
-        for pen in self.penslist:
-            pen.SetWidth(penwidth)
+        self.mainpen.SetWidth(penwidth)
+        self.arcpen.SetWidth(penwidth)
+        self.travelpen.SetWidth(penwidth/4.0)
+        self.hlpen.SetWidth(penwidth*2.0)
+        for pen in self.fades:
+            pen.SetWidth(penwidth/2.0)
+        self.penslist=[self.mainpen,self.travelpen,self.hlpen]+self.fades
         #self.dirty = 1
         self.repaint()
         self.Refresh()
@@ -242,16 +271,16 @@ class gviz(wx.Panel):
         self.blitmap = wx.EmptyBitmap(self.GetClientSize()[0], self.GetClientSize()[1],-1)
         dc = wx.MemoryDC()
         dc.SelectObject(self.blitmap)
-        dc.SetBackground(wx.Brush((250, 250, 200)))
+        dc.SetBackground(wx.Brush((250,255,245)))
         dc.Clear()
-        dc.SetPen(wx.Pen(wx.Colour(180, 180, 150)))
+        dc.SetPen(wx.Pen(wx.Colour(188,200,180)))
         for grid_unit in self.grid:
             if grid_unit > 0:
                 for x in xrange(int(self.build_dimensions[0]/grid_unit)+1):
                     dc.DrawLine(self.translate[0]+x*self.scale[0]*grid_unit, self.translate[1], self.translate[0]+x*self.scale[0]*grid_unit, self.translate[1]+self.scale[1]*self.build_dimensions[1])
                 for y in xrange(int(self.build_dimensions[1]/grid_unit)+1):
-                    dc.DrawLine(self.translate[0], self.translate[1]+y*self.scale[1]*grid_unit, self.translate[0]+self.scale[0]*self.build_dimensions[0], self.translate[1]+y*self.scale[1]*grid_unit)
-            dc.SetPen(wx.Pen(wx.Colour(0, 0, 0)))
+                    dc.DrawLine(self.translate[0],self.translate[1]+y*self.scale[1]*grid_unit,self.translate[0]+self.scale[0]*self.build_dimensions[0],self.translate[1]+y*self.scale[1]*grid_unit)
+            dc.SetPen(wx.Pen(wx.Colour(148,160,140)))
         if not self.showall:
             self.size = self.GetSize()
             dc.SetBrush(wx.Brush((43, 144, 255)))
