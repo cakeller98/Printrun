@@ -49,7 +49,10 @@ def dosify(name):
     return os.path.split(name)[1].split(".")[0][:8]+".g"
 
 def parse_temperature_report(report, key):
-    return float(filter(lambda x: x.startswith(key), report.split())[0].split(":")[1].split("/")[0])
+    if key in report:
+        return float(filter(lambda x: x.startswith(key), report.split())[0].split(":")[1].split("/")[0])
+    else: 
+        return -1.0
 
 def format_time(timestamp):
     return datetime.datetime.fromtimestamp(timestamp).strftime("%H:%M:%S")
@@ -963,7 +966,7 @@ class PronterWindow(MainWindow, pronsole.pronsole):
                 if wx.GetKeyState(wx.WXK_CONTROL) or wx.GetKeyState(wx.WXK_ALT):
                     return self.editbutton(e)
                 self.cur_button = e.GetEventObject().custombutton
-            self.onecmd(e.GetEventObject().properties[1])
+            self.onecmd(e.GetEventObject().properties.command)
             self.cur_button = None
         except:
             print _("event object missing")
