@@ -140,27 +140,27 @@ class window(wx.Frame):
             elif z < 0: self.p.zoom(event.GetX(), event.GetY(), 1/1.2)
 
 class gviz(wx.Panel):
-    def __init__(self,parent,size=(200,200),build_dimensions=[200,200,100,0,0,0],grid=(10,50),extrusion_width=0.5):
-        wx.Panel.__init__(self,parent,-1,size=(size[0],size[1]))
-        self.parent=parent
-        self.size=size
-        self.build_dimensions=build_dimensions
-        self.grid=grid
-        self.lastpos=[0,0,0,0,0,0,0]
-        self.hilightpos=self.lastpos[:]
-        self.Bind(wx.EVT_PAINT,self.paint)
-        self.Bind(wx.EVT_SIZE,self.resize)
-        self.lines={}
-        self.pens={}
-        self.arcs={}
-        self.arcpens={}
-        self.layers=[]
-        self.layerindex=0
-        self.filament_width=extrusion_width # set it to 0 to disable scaling lines with zoom
-        self.basescale=[min(float(size[0])/build_dimensions[0],float(size[1])/build_dimensions[1])]*2
-        self.scale=self.basescale
-        penwidth = max(1.0,self.filament_width*((self.scale[0]+self.scale[1])/2.0))
-        self.translate=[0.0,0.0]
+    def __init__(self, parent, size = (200, 200), build_dimensions = [200, 200, 100, 0, 0, 0], grid = (10, 50), extrusion_width = 0.5):
+        wx.Panel.__init__(self, parent,-1, size = (size[0], size[1]))
+        self.parent = parent
+        self.size = size
+        self.build_dimensions = build_dimensions
+        self.grid = grid
+        self.lastpos = [0, 0, 0, 0, 0, 0, 0]
+        self.hilightpos = self.lastpos[:]
+        self.Bind(wx.EVT_PAINT, self.paint)
+        self.Bind(wx.EVT_SIZE, self.resize)
+        self.lines = {}
+        self.pens = {}
+        self.arcs = {}
+        self.arcpens = {}
+        self.layers = []
+        self.layerindex = 0
+        self.filament_width = extrusion_width # set it to 0 to disable scaling lines with zoom
+        self.basescale = [min(float(size[0])/build_dimensions[0], float(size[1])/build_dimensions[1])]*2
+        self.scale = self.basescale
+        penwidth = max(1.0, self.filament_width*((self.scale[0]+self.scale[1])/2.0))
+        self.translate = [0.0, 0.0]
         penwidthtravel=4.0
         penwidthhl=8.0
         penwidthfading=0.9
