@@ -90,6 +90,35 @@ def measurements(g):
     return (Xtot, Ytot, Ztot, Xmin, Xmax, Ymin, Ymax, Zmin, Zmax)
 
 def totalelength(g):
+    pos = 0
+    prv = 0
+    mov = 0
+    tot = 0
+    tof = 0
+    tob = 0
+    cur = 0
+    cuf = 0
+    cub = 0
+    for i in g:
+        if "E" in i and ("G1" in i or "G0" in i):
+            try:
+                pos = float(i.split("E")[1].split(" ")[0])
+                mov = pos-prv
+                tof += max(0.0, mov)
+                tob += min(0.0, mov)
+                tot += mov
+                prv = pos
+            except:
+                print("error parsing "), i
+        elif "G92" in i and "E" in i:
+            try:
+                pos = float(i.split("E")[1].split(" ")[0])
+                prv = pos
+            except:
+                print("error parsing "), i
+    return (tot, tof, tob)
+
+def totalextrusion(g):
     tot = 0
     cur = 0
     for i in g:
@@ -101,6 +130,8 @@ def totalelength(g):
         elif "G92" in i and "E0" in i:
             tot+=cur
     return tot
+
+
 
 def get_coordinate_value(axis, parts):
     for i in parts:

@@ -1300,7 +1300,10 @@ class PronterWindow(MainWindow, pronsole.pronsole):
 
     def loadviz(self):
         Xtot, Ytot, Ztot, Xmin, Xmax, Ymin, Ymax, Zmin, Zmax = pronsole.measurements(self.f)
-        print pronsole.totalelength(self.f), _("mm of filament used in this print\n")
+        Extrusion = pronsole.totalelength(self.f)
+        print _("Printing file:"), os.path.basename(self.filename)
+        print Extrusion[0], _("mm of filament used in this print\n")
+        print _("mm movement spent:\n extruding %f\n retracting %f\n") % (Extrusion[1], Extrusion[2])
         print _("the print goes from %f mm to %f mm in X\nand is %f mm wide\n") % (Xmin, Xmax, Xtot)
         if self.webInterface:
             self.webInterface.AddLog(_("the print goes from %f mm to %f mm in X\nand is %f mm wide\n") % (Xmin, Xmax, Xtot))
