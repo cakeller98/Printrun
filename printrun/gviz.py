@@ -175,11 +175,12 @@ class gviz(wx.Panel):
         #self.fadingColors=[wx.Colour(250-0.6**i*100,250-0.6**i*100,200-0.4**i*50) for i in xrange(6)]
         #self.fadingColors=[wx.Colour(((self.filamentColor.Red)+(self.gridBGColor.Red*i) / (i+1)), ((self.filamentColor.Green())+(self.gridBGColor.Green()*i) / (i+1)), ((self.filamentColor.Blue())+(self.gridBGColor.Blue()*i) / (i+1))) for i in xrange(6)]
         self.mainpen=wx.Pen(self.filamentColor,penwidth)
+        self.retractPen=wx.Pen(self.retractColor,penwidth*4)
         self.arcpen=wx.Pen(self.filamentArcColor,penwidth)
         self.travelpen=wx.Pen(self.travelColor,penwidth*penwidthtravel)
         self.hlpen=wx.Pen(self.highlightColor,penwidth*penwidthhl)
         self.fades=[wx.Pen(self.fadingColors[i],penwidth*(1-penwidthfading**i)) for i in xrange(6)]
-        self.penslist=[self.mainpen,self.travelpen,self.hlpen]+self.fades
+        self.penslist=[self.mainpen,self.travelpen,self.hlpen,self.retractPen]+self.fades
         self.showall=0
         self.hilight=[]
         self.hilightarcs=[]
@@ -213,6 +214,7 @@ class gviz(wx.Panel):
         self.filamentArcColor=wx.Color(200,175,0)
         self.travelColor=wx.Color(245,250,240)
         self.highlightColor=wx.Colour(255,255,0)
+        self.retractColor=wx.Colour(0,128,255)
         self.fadingColors=[wx.Colour(250-0.6**i*100,250-0.6**i*100,200-0.4**i*50) for i in xrange(6)]
 
     def layerup(self):
@@ -259,9 +261,10 @@ class gviz(wx.Panel):
         self.arcpen.SetWidth(penwidth)
         self.travelpen.SetWidth(penwidth/4.0)
         self.hlpen.SetWidth(penwidth*2.0)
+        self.retractPen.SetWidth(penwidth*8.0)        
         for pen in self.fades:
             pen.SetWidth(penwidth/2.0)
-        self.penslist=[self.mainpen,self.travelpen,self.hlpen]+self.fades
+        self.penslist=[self.mainpen,self.travelpen,self.hlpen,self.retractPen]+self.fades
         #self.dirty = 1
         self.repaint()
         self.Refresh()
@@ -395,6 +398,9 @@ class gviz(wx.Panel):
         if gcode[0] in [ "g0", "g1" ]:
             target = _readgcode()
             line = [ _x(start_pos[0]), _y(start_pos[1]), _x(target[0]), _y(target[1]) ]
+            if target[3]<self.lastpos[3]:
+                self.lines[ target[2] ] += [line]
+                self.pens[ target[2] ] += [self.retractPen]
             if not hilight:
                 self.lines[ target[2] ] += [line]
                 self.pens[ target[2] ]  += [self.mainpen if target[3] != self.lastpos[3] else self.travelpen]
