@@ -67,11 +67,11 @@ class window(wx.Frame):
         s = time.time()
         #print time.time()-s
         self.initpos = [0, 0]
-        self.p.Bind(wx.EVT_KEY_DOWN, self.key)
         #self.bu.Bind(wx.EVT_KEY_DOWN, self.key)
         #self.bd.Bind(wx.EVT_KEY_DOWN, self.key)
         #self.bi.Bind(wx.EVT_KEY_DOWN, self.key)
         #self.bo.Bind(wx.EVT_KEY_DOWN, self.key)
+        self.p.Bind(wx.EVT_KEY_DOWN, self.key)
         self.Bind(wx.EVT_KEY_DOWN, self.key)
         self.p.Bind(wx.EVT_MOUSEWHEEL, self.zoom)
         self.Bind(wx.EVT_MOUSEWHEEL, self.zoom)
@@ -103,10 +103,12 @@ class window(wx.Frame):
 
     def key(self, event):
         #  Keycode definitions
-        kup = [85, 315]               # Up keys
-        kdo = [68, 317]               # Down Keys
-        kzi = [388, 316, 61]        # Zoom In Keys
-        kzo = [390, 314, 45]       # Zoom Out Keys
+        kup = [85, 315, 93, 366, 380]               # Up keys
+        kdo = [68, 317, 91, 367, 381]               # Down Keys
+        kzi = [388, 316, 61]                        # Zoom In Keys
+        kzo = [390, 314, 45]                        # Zoom Out Keys
+        khm = [313, 375]                            #go to first layer
+        knd = [312, 382]                           #go to last layer
         x = event.GetKeyCode()
         #print "Key event - "+str(x)
         #if event.ShiftDown():
@@ -124,6 +126,10 @@ class window(wx.Frame):
             self.p.layerup()
         if x in kdo:
             self.p.layerdown()
+        if x in khm:
+            self.p.setfirstlayer()
+        if x in knd:
+            self.p.setlastlayer()
         if x in kzi:
             self.p.zoom(cx, cy, 1.2)
         if x in kzo:
@@ -151,42 +157,55 @@ class gviz(wx.Panel):
         self.Bind(wx.EVT_PAINT, self.paint)
         self.Bind(wx.EVT_SIZE, self.resize)
         self.lines = {}
-        self.pens = {}
+        self.linepens = {}
         self.arcs = {}
         self.arcpens = {}
         self.layers = []
         self.layerindex = 0
-        self.filament_width = extrusion_width # set it to 0 to disable scaling lines with zoom
+        self.layerFades = 6
         self.basescale = [min(float(size[0])/build_dimensions[0], float(size[1])/build_dimensions[1])]*2
         self.scale = self.basescale
-        penwidth = max(1.0, self.filament_width*((self.scale[0]+self.scale[1])/2.0))
         self.translate = [0.0, 0.0]
-        penwidthtravel=4.0
-        penwidthhl=8.0
-        penwidthfading=0.9
-        self.setColors([wx.Color(0,0,0)])
-        #self.gridBGColor=wx.Colour(250,255,245)
-        #self.gridMinorColor=wx.Colour(188,200,180)
-        #self.gridMajorColor=wx.Colour(148,160,140)
-        #self.filamentColor=wx.Color(255,128,0)
-        #self.filamentArcColor=wx.Color(200,175,0)
-        #self.travelColor=wx.Color(245,250,240)
-        #self.highlightColor=wx.Colour(255,255,0)
-        #self.fadingColors=[wx.Colour(250-0.6**i*100,250-0.6**i*100,200-0.4**i*50) for i in xrange(6)]
-        #self.fadingColors=[wx.Colour(((self.filamentColor.Red)+(self.gridBGColor.Red*i) / (i+1)), ((self.filamentColor.Green())+(self.gridBGColor.Green()*i) / (i+1)), ((self.filamentColor.Blue())+(self.gridBGColor.Blue()*i) / (i+1))) for i in xrange(6)]
-        self.mainpen=wx.Pen(self.filamentColor,penwidth)
-        self.retractPen=wx.Pen(self.retractColor,penwidth*4)
-        self.arcpen=wx.Pen(self.filamentArcColor,penwidth)
-        self.travelpen=wx.Pen(self.travelColor,penwidth*penwidthtravel)
-        self.hlpen=wx.Pen(self.highlightColor,penwidth*penwidthhl)
-        self.fades=[wx.Pen(self.fadingColors[i],penwidth*(1-penwidthfading**i)) for i in xrange(6)]
-        self.penslist=[self.mainpen,self.travelpen,self.hlpen,self.retractPen]+self.fades
+        self.filamentWidth = extrusion_width # set it to 0 to disable scaling lines with zoom
+        # gviz colors
+        # UI element colors
+        self.gridBGColor=wx.Colour(245,245,255)
+        self.gridMinorColor=wx.Colour(180,180,210)
+        self.gridMajorColor=wx.Colour(160,160,190)
+        self.progressBarFG=wx.Colour(0, 255, 128)
+        self.progressBarBG=wx.Colour(43, 44, 55)
+        # gcode rendering colors
+        self.filamentColor=wx.Color(255,128,0)
+        self.filamentArcColor=wx.Color(200,175,0)
+        self.filamentFadeColor = self.dimColor(self.filamentColor)
+        self.filamentFadingColors = self.fadeColors(self.filamentFadeColor, self.gridBGColor)
+        self.travelColor=wx.Colour(128,192,255)
+        self.highlightColor=wx.Colour(255,255,0)
+        self.retractColor=wx.Colour(0,128,255)
+        
+        self.setPens()
         self.showall=0
         self.hilight=[]
         self.hilightarcs=[]
         self.dirty=1
         self.blitmap=wx.EmptyBitmap(self.GetClientSize()[0],self.GetClientSize()[1],-1)
-    
+
+    def dimColor(self, a=wx.Colour(0,0,0)):
+        """Returns a dimmer version of the supplied color."""
+        return wx.Colour(   ((a.red-128) * 0.5)+128,
+                            ((a.green-128) * 0.5)+128,
+                            ((a.blue-128) * 0.5)+128 )
+
+    def fadeColors(self, a, b, r=6):
+        """Returns a list of colors that fade from color a to color b in r steps."""
+        fades = []
+        for i in xrange(r):
+            j=i+1.0
+            ka=1.5/(2.0**j)
+            kb=0.8-ka
+            fades += [wx.Colour( (a.red * ka) + (b.red * kb), (a.green * ka) + (b.green * kb), (a.blue * ka) + (b.blue * kb ) )]
+        return fades
+
     def inject(self):
         #import pdb; pdb.set_trace()
         print"Inject code here..."
@@ -195,7 +214,7 @@ class gviz(wx.Panel):
     def clear(self):
         self.lastpos = [0, 0, 0, 0, 0, 0, 0]
         self.lines = {}
-        self.pens = {}
+        self.linepens = {}
         self.arcs = {}
         self.arcpens = {}
         self.layers = []
@@ -206,16 +225,40 @@ class gviz(wx.Panel):
         self.dirty = 1
         #self.repaint()
 
-    def setColors(self, colors=[]):
-        self.gridBGColor=wx.Colour(250,255,245)
-        self.gridMinorColor=wx.Colour(188,200,180)
-        self.gridMajorColor=wx.Colour(148,160,140)
-        self.filamentColor=wx.Color(255,128,0)
-        self.filamentArcColor=wx.Color(200,175,0)
-        self.travelColor=wx.Color(245,250,240)
-        self.highlightColor=wx.Colour(255,255,0)
-        self.retractColor=wx.Colour(0,128,255)
-        self.fadingColors=[wx.Colour(250-0.6**i*100,250-0.6**i*100,200-0.4**i*50) for i in xrange(6)]
+    def setPens(self):
+        self.filamentPen=wx.Pen(wx.Color(0,0,0),1)
+        self.retractPen=wx.Pen(wx.Color(0,0,0),1)
+        self.arcpen=wx.Pen(wx.Color(0,0,0),1)
+        self.travelpen=wx.Pen(wx.Color(0,0,0),1)
+        self.hlpen=wx.Pen(wx.Color(0,0,0),1)
+        self.fadePens=[wx.Pen(wx.Color(0,0,0),1) for i in xrange(6)]
+
+        self.resetPenColors()
+        self.resetPenWidths()
+
+    def resetPenColors(self):
+        """Used to update the gcode pen colors."""
+
+        self.filamentPen.SetColour(self.filamentColor)
+        self.retractPen.SetColour(self.retractColor)
+        self.arcpen.SetColour(self.filamentArcColor)
+        self.travelpen.SetColour(self.travelColor)
+        self.hlpen.SetColour(self.highlightColor)
+        for i in xrange(6):
+            self.fadePens[i].SetColour(self.filamentFadingColors[i])
+
+    def resetPenWidths(self, penwidth = None):
+        """Used to update the gcode pen widths."""
+        if penwidth == None:
+            penwidth = max(1.0, self.filamentWidth)
+
+        self.filamentPen.SetWidth(penwidth)
+        self.retractPen.SetWidth(penwidth*3)
+        self.arcpen.SetWidth(penwidth)
+        self.travelpen.SetWidth(penwidth)
+        self.hlpen.SetWidth(penwidth*2)
+        for i in xrange(0, 6):
+            self.fadePens[i].SetWidth(max(1.0, ( penwidth * (7.0-(i+1)) + 1.0 * (i+1) ) / 7.0))
 
     def layerup(self):
         if(self.layerindex+1<len(self.layers)):
@@ -233,6 +276,20 @@ class gviz(wx.Panel):
             self.repaint()
             self.Refresh()
 
+    def setlastlayer(self):
+        self.layerindex=len(self.layers)-1
+        # Display layer info on statusbar (Jezmy)
+        self.parent.SetStatusText("Layer "+str(self.layerindex +1)+" - Going Up - Z = "+str(self.layers[self.layerindex])+" mm", 0)
+        self.repaint()
+        self.Refresh()
+
+    def setfirstlayer(self):
+        self.layerindex=0
+        # Display layer info on statusbar (Jezmy)
+        self.parent.SetStatusText("Layer "+str(self.layerindex + 1)+" - Going Down - Z = "+str(self.layers[self.layerindex])+ " mm", 0)
+        self.repaint()
+        self.Refresh()
+
     def setlayer(self, layer):
         try:
             self.layerindex = self.layers.index(layer)
@@ -247,48 +304,39 @@ class gviz(wx.Panel):
         size = [max(1.0, size[0]), max(1.0, size[1])]
         self.size = [max(1.0, self.size[0]), max(1.0, self.size[1])]
         newsize = min(float(size[0])/self.size[0], float(size[1])/self.size[1])
-        self.size = self.GetClientSize()
+        self.size = size
         wx.CallAfter(self.zoom, 0, 0, newsize)
-
 
     def zoom(self, x, y, factor):
         self.scale = [s * factor for s in self.scale]
 
         self.translate = [ x - (x-self.translate[0]) * factor,
                             y - (y-self.translate[1]) * factor]
-        penwidth = max(1.0, self.filament_width*((self.scale[0]+self.scale[1])/2.0))
-        self.mainpen.SetWidth(penwidth)
-        self.arcpen.SetWidth(penwidth)
-        self.travelpen.SetWidth(penwidth/4.0)
-        self.hlpen.SetWidth(penwidth*2.0)
-        self.retractPen.SetWidth(penwidth*8.0)        
-        for pen in self.fades:
-            pen.SetWidth(penwidth/2.0)
-        self.penslist=[self.mainpen,self.travelpen,self.hlpen,self.retractPen]+self.fades
-        #self.dirty = 1
+        scaledFilamentWidth = max(1.0, self.filamentWidth*((self.scale[0]+self.scale[1])/2.0))
+        self.resetPenWidths(scaledFilamentWidth)
+        self.resetPenColors()
         self.repaint()
         self.Refresh()
-
 
     def repaint(self):
         self.blitmap = wx.EmptyBitmap(self.GetClientSize()[0], self.GetClientSize()[1],-1)
         dc = wx.MemoryDC()
         dc.SelectObject(self.blitmap)
-        dc.SetBackground(wx.Brush((250,255,245)))
+        dc.SetBackground(wx.Brush(self.gridBGColor))
         dc.Clear()
-        dc.SetPen(wx.Pen(wx.Colour(188,200,180)))
+        dc.SetPen(wx.Pen(self.gridMinorColor))
         for grid_unit in self.grid:
             if grid_unit > 0:
                 for x in xrange(int(self.build_dimensions[0]/grid_unit)+1):
                     dc.DrawLine(self.translate[0]+x*self.scale[0]*grid_unit, self.translate[1], self.translate[0]+x*self.scale[0]*grid_unit, self.translate[1]+self.scale[1]*self.build_dimensions[1])
                 for y in xrange(int(self.build_dimensions[1]/grid_unit)+1):
                     dc.DrawLine(self.translate[0],self.translate[1]+y*self.scale[1]*grid_unit,self.translate[0]+self.scale[0]*self.build_dimensions[0],self.translate[1]+y*self.scale[1]*grid_unit)
-            dc.SetPen(wx.Pen(wx.Colour(148,160,140)))
+            dc.SetPen(wx.Pen(self.gridMajorColor))
         if not self.showall:
             self.size = self.GetSize()
-            dc.SetBrush(wx.Brush((43, 144, 255)))
+            dc.SetBrush(wx.Brush(self.progressBarBG))
             dc.DrawRectangle(self.size[0]-15, 0, 15, self.size[1])
-            dc.SetBrush(wx.Brush((0, 255, 0)))
+            dc.SetBrush(wx.Brush(self.progressBarFG))
             if len(self.layers):
                 dc.DrawRectangle(self.size[0]-14, (1.0-(1.0*(self.layerindex+1))/len(self.layers))*self.size[1], 13, self.size[1]-1)
 
@@ -318,16 +366,16 @@ class gviz(wx.Panel):
         if self.showall:
             l = []
             for i in self.layers:
-                dc.DrawLineList(l, self.fades[0])
-                _drawlines(self.lines[i], self.pens[i])
+                dc.DrawLineList(l, self.fadePens[0])
+                _drawlines(self.lines[i], self.linepens[i])
                 _drawarcs(self.arcs[i], self.arcpens[i])
             return
         if self.layerindex<len(self.layers) and self.layers[self.layerindex] in self.lines.keys():
             for layer_i in xrange(max(0, self.layerindex-6), self.layerindex):
                 #print i, self.layerindex, self.layerindex-i
-                _drawlines(self.lines[self.layers[layer_i]], self.fades[self.layerindex-layer_i-1])
-                _drawarcs(self.arcs[self.layers[layer_i]], self.fades[self.layerindex-layer_i-1])
-            _drawlines(self.lines[self.layers[self.layerindex]], self.pens[self.layers[self.layerindex]])
+                _drawlines(self.lines[self.layers[layer_i]], self.fadePens[self.layerindex-layer_i-1])
+                _drawarcs(self.arcs[self.layers[layer_i]], self.fadePens[self.layerindex-layer_i-1])
+            _drawlines(self.lines[self.layers[self.layerindex]], self.linepens[self.layers[self.layerindex]])
             _drawarcs(self.arcs[self.layers[self.layerindex]], self.arcpens[self.layers[self.layerindex]])
 
         _drawlines(self.hilight, self.hlpen)
@@ -382,7 +430,7 @@ class gviz(wx.Panel):
             if not hilight:
                 if not target[2] in self.lines.keys():
                     self.lines[target[2]]=[]
-                    self.pens[target[2]]=[]
+                    self.linepens[target[2]]=[]
                     self.arcs[target[2]]=[]
                     self.arcpens[target[2]]=[]
                     self.layers+=[target[2]]
@@ -395,15 +443,21 @@ class gviz(wx.Panel):
 
         start_pos = self.hilightpos[:] if hilight else self.lastpos[:]
 
+        # find retractions and draw as a big DOT #
+        if gcode[0] in [ "g92"]:
+            target = _readgcode()
+            self.lastpos = target
+            self.dirty = 1
+
         if gcode[0] in [ "g0", "g1" ]:
             target = _readgcode()
             line = [ _x(start_pos[0]), _y(start_pos[1]), _x(target[0]), _y(target[1]) ]
             if target[3]<self.lastpos[3]:
                 self.lines[ target[2] ] += [line]
-                self.pens[ target[2] ] += [self.retractPen]
+                self.linepens[ target[2] ] += [self.retractPen]
             if not hilight:
                 self.lines[ target[2] ] += [line]
-                self.pens[ target[2] ]  += [self.mainpen if target[3] != self.lastpos[3] else self.travelpen]
+                self.linepens[ target[2] ]  += [self.filamentPen if target[3] != self.lastpos[3] else self.travelpen]
                 self.lastpos = target
             else:
                 self.hilight += [line]
