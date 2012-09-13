@@ -24,6 +24,9 @@ class window(wx.Frame):
         self.p = gviz(self, size = size, build_dimensions = build_dimensions, grid = grid, extrusion_width = extrusion_width)
 
         vbox = wx.BoxSizer(wx.VERTICAL)
+        gvizBox = wx.BoxSizer(wx.VERTICAL)
+        gvizBox.Add( self.p, 1, wx.EXPAND | wx.ALL, 0 )
+        vbox.Add( gvizBox, 1, wx.EXPAND | wx.ALL, 0 )
         toolbar = wx.ToolBar(self, -1, style = wx.TB_HORIZONTAL | wx.NO_BORDER)
         toolbar.AddSimpleTool(1, wx.Image(imagefile('zoom_in.png'), wx.BITMAP_TYPE_PNG).ConvertToBitmap(), 'Zoom In [+]', '')
         toolbar.AddSimpleTool(2, wx.Image(imagefile('zoom_out.png'), wx.BITMAP_TYPE_PNG).ConvertToBitmap(), 'Zoom Out [-]', '')
