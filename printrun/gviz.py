@@ -182,6 +182,8 @@ class gviz(wx.Panel):
         self.filamentArcColor=wx.Color(200,175,0)
         self.filamentFadeColor = self.dimColor(self.filamentColor)
         self.filamentFadingColors = self.fadeColors(self.filamentFadeColor, self.gridBGColor)
+        self.filamentStartColor=wx.Colour(0,255,0)
+        self.filamentEndColor=wx.Colour(255,0,0)
         self.travelColor=wx.Colour(128,192,255)
         self.highlightColor=wx.Colour(255,255,0)
         self.retractColor=wx.Colour(0,128,255)
@@ -230,6 +232,8 @@ class gviz(wx.Panel):
 
     def setPens(self):
         self.filamentPen=wx.Pen(wx.Color(0,0,0),1)
+        self.filamentStartPen=wx.Pen(wx.Color(0,0,0),4)
+        self.filamentEndPen=wx.Pen(wx.Color(0,0,0),4)
         self.retractPen=wx.Pen(wx.Color(0,0,0),1)
         self.arcpen=wx.Pen(wx.Color(0,0,0),1)
         self.travelpen=wx.Pen(wx.Color(0,0,0),1)
@@ -243,6 +247,8 @@ class gviz(wx.Panel):
         """Used to update the gcode pen colors."""
 
         self.filamentPen.SetColour(self.filamentColor)
+        self.filamentStartPen.SetColour(self.filamentStartColor)
+        self.filamentEndPen.SetColour(self.filamentEndColor)
         self.retractPen.SetColour(self.retractColor)
         self.arcpen.SetColour(self.filamentArcColor)
         self.travelpen.SetColour(self.travelColor)
