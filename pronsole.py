@@ -99,11 +99,15 @@ def totalelength(g):
     cur = 0
     cuf = 0
     cub = 0
+    rct = 0
+    eac = 0.0
     for i in g:
         if "E" in i and ("G1" in i or "G0" in i):
             try:
                 pos = float(i.split("E")[1].split(" ")[0])
                 mov = pos-prv
+                if (mov < 0): 
+                    rct += 1
                 tof += max(0.0, mov)
                 tob += min(0.0, mov)
                 tot += mov
@@ -116,7 +120,9 @@ def totalelength(g):
                 prv = pos
             except:
                 print("error parsing "), i
-    return (tot, tof, tob)
+
+    wet = (1.0 - (tot/(tof+abs(tob)))) *100.0
+    return (tot, tof, abs(tob), rct, wet)
 
 def totalextrusion(g):
     tot = 0
