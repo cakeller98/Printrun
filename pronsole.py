@@ -20,6 +20,7 @@ import glob, os, time, datetime
 import sys, subprocess
 import math, codecs
 from math import sqrt
+from printrun.gcoder import GCode
 
 import printcore
 from printrun.printrun_utils import install_locale
@@ -43,101 +44,14 @@ except:
 def dosify(name):
     return os.path.split(name)[1].split(".")[0][:8]+".g"
 
-def measurements(g):
-    Xcur = 0.0
-    Ycur = 0.0
-    Zcur = 0.0
-    Xmin = 1000000
-    Ymin = 1000000
-    Zmin = 1000000
-    Xmax=-1000000
-    Ymax=-1000000
-    Zmax=-1000000
-    Xtot = 0
-    Ytot = 0
-    Ztot = 0
+def measurements(gcode):
+    return (gcode.width, gcode.depth, gcode.height, gcode.xmin, gcode.xmax, gcode.ymin, gcode.ymax, gcode.zmin, gcode.zmax)
 
+def totalelength(gcode):
+    return (gcode.ee, gcode.ef, gcode.er, gcode.rc, gcode.we)
 
-    for i in g:
-        if "X" in i and ("G1" in i or "G0" in i):
-            try:
-                Xcur = float(i.split("X")[1].split(" ")[0])
-                if Xcur<Xmin and Xcur>5.0: Xmin = Xcur
-                if Xcur>Xmax: Xmax = Xcur
-            except:
-                pass
-        if "Y" in i and ("G1" in i or "G0" in i):
-            try:
-                Ycur = float(i.split("Y")[1].split(" ")[0])
-                if Ycur<Ymin and Ycur>5.0: Ymin = Ycur
-                if Ycur>Ymax: Ymax = Ycur
-            except:
-                pass
-
-        if "Z" in i and ("G1" in i or "G0" in i):
-            try:
-                Zcur = float(i.split("Z")[1].split(" ")[0])
-                if Zcur<Zmin: Zmin = Zcur
-                if Zcur>Zmax: Zmax = Zcur
-            except:
-                pass
-
-
-        Xtot = Xmax - Xmin
-        Ytot = Ymax - Ymin
-        Ztot = Zmax - Zmin
-
-    return (Xtot, Ytot, Ztot, Xmin, Xmax, Ymin, Ymax, Zmin, Zmax)
-
-def totalelength(g):
-    pos = 0
-    prv = 0
-    mov = 0
-    tot = 0
-    tof = 0
-    tob = 0
-    cur = 0
-    cuf = 0
-    cub = 0
-    rct = 0
-    eac = 0.0
-    for i in g:
-        if "E" in i and ("G1" in i or "G0" in i):
-            try:
-                pos = float(i.split("E")[1].split(" ")[0])
-                mov = pos-prv
-                if (mov < 0): 
-                    rct += 1
-                tof += max(0.0, mov)
-                tob += min(0.0, mov)
-                tot += mov
-                prv = pos
-            except:
-                print("error parsing "), i
-        elif "G92" in i and "E" in i:
-            try:
-                pos = float(i.split("E")[1].split(" ")[0])
-                prv = pos
-            except:
-                print("error parsing "), i
-
-    wet = (1.0 - (tot/(tof+abs(tob)))) *100.0
-    return (tot, tof, abs(tob), rct, wet)
-
-def totalextrusion(g):
-    tot = 0
-    cur = 0
-    for i in g:
-        if "E" in i and ("G1" in i or "G0" in i):
-            try:
-                cur = float(i.split("E")[1].split(" ")[0])
-            except:
-                pass
-        elif "G92" in i and "E0" in i:
-            tot+=cur
-    return tot
-
-
+def totalextrusion(gcode):
+    return gcode.filament_length()
 
 def get_coordinate_value(axis, parts):
     for i in parts:
@@ -147,75 +61,6 @@ def get_coordinate_value(axis, parts):
 
 def hypot3d(X1, Y1, Z1, X2 = 0.0, Y2 = 0.0, Z2 = 0.0):
     return math.hypot(X2-X1, math.hypot(Y2-Y1, Z2-Z1))
-
-def estimate_duration(g):
-
-    lastx = lasty = lastz = laste = lastf = 0.0
-    x = y = z = e = f = 0.0
-    currenttravel = 0.0
-    totaltravel = 0.0
-    moveduration = 0.0
-    totalduration = 0.0
-    acceleration = 1500.0 #mm/s/s  ASSUMING THE DEFAULT FROM SPRINTER !!!!
-    layerduration = 0.0
-    layerbeginduration = 0.0
-    layercount = 0
-    #TODO:
-    # get device caps from firmware: max speed, acceleration/axis (including extruder)
-    # calculate the maximum move duration accounting for above ;)
-    # print ".... estimating ...."
-    for i in g:
-        i = i.split(";")[0]
-        if "G4" in i or "G1" in i:
-            if "G4" in i:
-                parts = i.split(" ")
-                moveduration = get_coordinate_value("P", parts[1:])
-                if moveduration is None:
-                    continue
-                else:
-                    moveduration /= 1000.0
-            if "G1" in i:
-                parts = i.split(" ")
-                x = get_coordinate_value("X", parts[1:])
-                if x is None: x = lastx
-                y = get_coordinate_value("Y", parts[1:])
-                if y is None: y = lasty
-                z = get_coordinate_value("Z", parts[1:])
-                if (z is None) or  (z<lastz): z = lastz # Do not increment z if it's below the previous (Lift z on move fix)
-                e = get_coordinate_value("E", parts[1:])
-                if e is None: e = laste
-                f = get_coordinate_value("F", parts[1:])
-                if f is None: f = lastf
-                else: f /= 60.0 # mm/s vs mm/m
-
-                # given last feedrate and current feedrate calculate the distance needed to achieve current feedrate.
-                # if travel is longer than req'd distance, then subtract distance to achieve full speed, and add the time it took to get there.
-                # then calculate the time taken to complete the remaining distance
-
-                currenttravel = hypot3d(x, y, z, lastx, lasty, lastz)
-                distance = abs(2* ((lastf+f) * (f-lastf) * 0.5 ) / acceleration)  #2x because we have to accelerate and decelerate
-                if distance <= currenttravel and ( lastf + f )!=0 and f!=0:
-                    moveduration = 2 * distance / ( lastf + f )
-                    currenttravel -= distance
-                    moveduration += currenttravel/f
-                else:
-                    moveduration = math.sqrt( 2 * distance / acceleration )
-
-            totalduration += moveduration
-
-            if z > lastz:
-                layercount +=1
-                #print "layer z: ", lastz, " will take: ", time.strftime('%H:%M:%S', time.gmtime(totalduration-layerbeginduration))
-                layerbeginduration = totalduration
-
-            lastx = x
-            lasty = y
-            lastz = z
-            laste = e
-            lastf = f
-
-    #print "Total Duration: " #, time.strftime('%H:%M:%S', time.gmtime(totalduration))
-    return "{0:d} layers, ".format(int(layercount)) + str(datetime.timedelta(seconds = int(totalduration)))
 
 class Settings:
     #def _temperature_alias(self): return {"pla":210, "abs":230, "off":0}

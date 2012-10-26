@@ -187,7 +187,7 @@ class gviz(wx.Panel):
         self.travelColor=wx.Colour(128,192,255)
         self.highlightColor=wx.Colour(255,255,0)
         self.retractColor=wx.Colour(0,128,255)
-        
+
         self.setPens()
         self.showall=0
         self.hilight=[]

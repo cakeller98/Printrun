@@ -59,7 +59,7 @@ class LeftPane(wx.GridBagSizer):
         self.Add(llts, pos = (0, 0), span = (1, 9))
         self.xyzsizer = XYZControlsSizer(root)
         self.Add(self.xyzsizer, pos = (1, 0), span = (1, 8), flag = wx.ALIGN_CENTER)
-        
+
         for i in root.cpbuttons:
             btn = make_button(root.panel, i.label, root.procbutton, i.tooltip, style = wx.BU_EXACTFIT)
             btn.SetBackgroundColour(i.background)
@@ -252,7 +252,7 @@ class MainToolbar(wx.BoxSizer):
         root.recoverbtn = make_sized_button(root.panel, _("Recover"), root.recover, _("Recover previous Print"), self)
 
 class MainWindow(wx.Frame):
-    
+
     def __init__(self, *args, **kwargs):
         super(MainWindow, self).__init__(*args, **kwargs)
         # this list will contain all controls that should be only enabled

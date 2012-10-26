@@ -16,6 +16,7 @@
 # along with Printrun.  If not, see <http://www.gnu.org/licenses/>.
 
 import os, Queue, re
+from printrun.gcoder import GCode
 
 from printrun.printrun_utils import install_locale
 install_locale('pronterface')
@@ -1299,8 +1300,10 @@ class PronterWindow(MainWindow, pronsole.pronsole):
                 threading.Thread(target = self.loadviz).start()
 
     def loadviz(self):
-        Xtot, Ytot, Ztot, Xmin, Xmax, Ymin, Ymax, Zmin, Zmax = pronsole.measurements(self.f)
-        Extrusion = pronsole.totalelength(self.f)
+        gcode = GCode(self.f)
+        gcode.measure()
+        Xtot, Ytot, Ztot, Xmin, Xmax, Ymin, Ymax, Zmin, Zmax = pronsole.measurements(gcode)
+        Extrusion = pronsole.totalelength(gcode)
         print _("Printing file:"), os.path.basename(self.filename)
         print Extrusion[0], _("mm of filament used in this print")
         print _("mm movement spent:\n extruding %f\n retracting %f") % (Extrusion[1], Extrusion[2])
@@ -1312,7 +1315,7 @@ class PronterWindow(MainWindow, pronsole.pronsole):
         print _("the print goes from %f mm to %f mm in Y\nand is %f mm wide\n") % (Ymin, Ymax, Ytot)
         print _("the print goes from %f mm to %f mm in Z\nand is %f mm high\n") % (Zmin, Zmax, Ztot)
         try:
-            print _("Estimated duration (pessimistic): "), pronsole.estimate_duration(self.f)
+            print _("Estimated duration (pessimistic): "), gcode.estimate
         except:
             pass
         #import time
